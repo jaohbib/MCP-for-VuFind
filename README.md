@@ -47,4 +47,4 @@ adjust the paths to your server.py and config.ini acordingly
 
 A small hammer indicates that claude uses an MCP server. A click  on the hammer icon shows to exported MCP functions.
 
-![exposed MCP Functions](\UBBSMCP\images\claude_main.PNG)
+![exposed MCP Functions](https://github.com/jaohbib/MCP-for-VuFind/blob/main/images/mcp%20tools.PNG)
