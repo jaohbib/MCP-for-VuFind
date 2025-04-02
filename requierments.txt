@@ -1,0 +1,4 @@
+requests
+fastmcp
+uv
+configparser

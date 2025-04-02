@@ -1,0 +1,5 @@
+[vufind]
+vufind_url = "your vufind"
+
+[paia]
+daia_url = "your paia server"

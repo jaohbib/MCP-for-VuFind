@@ -1,0 +1,11 @@
+{
+    "mcpServers": {
+      "Vufind": {
+        "command": "python",
+        "args": [
+          "C:/ubmcp/UBBSMCP/server.py ",
+          "C:/ubmcp/UBBSMCP/config.ini"
+        ]
+      }
+    }
+  }
