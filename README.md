@@ -43,7 +43,7 @@ adjust the paths to your server.py and config.ini acordingly
 ## claude in action
 
 
-![claude on startup](images\claude_main.PNG)
+![claude on startup](https://github.com/jaohbib/MCP-for-VuFind/blob/main/images/claude_main.PNG)
 
 A small hammer indicates that claude uses an MCP server. A click  on the hammer icon shows to exported MCP functions.
 
