@@ -1,4 +1,4 @@
-# UBBSMCP
+# MCP for VuFind
 
 
 
