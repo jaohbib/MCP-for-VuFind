@@ -16,6 +16,9 @@ mcp = FastMCP("VuFind MCP")
 class Config:
     def __init__(self, path: str = "config.ini"):
         self.vufind_url: str = ""
+        self.vufind_url_article: str = ""
+        self.vufind_url_frontend: str = ""
+        self.vufind_url_frontend_article: str = ""
         self.daia_url: str = ""
         self.server_mode: str = ""
         self._load(path)
@@ -29,14 +32,22 @@ class Config:
 
         if "vufind" in cfg and "vufind_url" in cfg["vufind"]:
             self.vufind_url = cfg["vufind"]["vufind_url"]
+        if "vufind" in cfg and "vufind_url_article" in cfg["vufind"]:
+            self.vufind_url_article = cfg["vufind"]["vufind_url_article"]
         if "paia" in cfg and "daia_url" in cfg["paia"]:
             self.daia_url = cfg["paia"]["daia_url"]
         if "server" in cfg and "mode" in cfg["server"]:
+            log.info("server mode set")
             self.server_mode = cfg["server"]["mode"]
+        if "vufind" in cfg and "vufind_url_frontend" in cfg["vufind"]:
+            log.info("frontend set")
+            self.vufind_url_frontend = cfg["vufind"]["vufind_url_frontend"]
+        if "vufind" in cfg and "vufind_url_frontend_article" in cfg["vufind"]:
+            self.vufind_url_frontend_article = cfg["vufind"]["vufind_url_frontend_article"]
 
 
 class HTTPClient:
-    def __init__(self, timeout: float = 5.0):
+    def __init__(self, timeout: float = 10.0):
         self.session = requests.Session()
         self.timeout = timeout
 
@@ -62,6 +73,7 @@ def register_tools(mcp_instance: FastMCP, cfg: Config, client: HTTPClient) -> No
     """
 
     if cfg.daia_url:
+        log.info("daia tool set")
         @mcp_instance.tool()
         def get_availability(offset: int = 0, limit: int = 100, ppn: str = "*") -> List[str]:
             """
@@ -78,6 +90,32 @@ def register_tools(mcp_instance: FastMCP, cfg: Config, client: HTTPClient) -> No
             """
             params = {"lookfor": lookfor, "offset": offset, "limit": limit}
             return client.get_lines(cfg.vufind_url , params=params)
+
+    if cfg.vufind_url_article:
+        @mcp_instance.tool()
+        def search_article(offset: int = 0, limit: int = 100, lookfor: str = "*") -> List[str]:
+            """
+            Search the VuFind catalogue for articles.
+            """
+            params = {"lookfor": lookfor, "offset": offset, "limit": limit}
+            return client.get_lines(cfg.vufind_url_article , params=params)
+
+    if cfg.vufind_url_frontend:
+        log.info("frontend tool set")
+        @mcp_instance.tool()
+        def frontend_link( ppn: str = "*") -> str:
+            """
+            returns a catalogue link for a given ppn.
+            """
+            return cfg.vufind_url_frontend+ppn 
+
+    if cfg.vufind_url_frontend_article:
+        @mcp_instance.tool()
+        def frontend_link__article( ppn: str = "*") -> str:
+            """
+            returns a catalogue link for a given article ppn.
+            """
+            return cfg.vufind_url_frontend_article+ppn
 
 
 def main(argv: Optional[List[str]] = None) -> None:
