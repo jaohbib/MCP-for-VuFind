@@ -10,7 +10,7 @@ daia_url = ""
 mcp = FastMCP("VuFind MCP")
 
 
-def parse_conf(path: str = "C:/config.ini"):
+def parse_conf(path: str = "config.ini"):
     config = configparser.ConfigParser()
     config.read(path)
     global vufind_url
@@ -19,6 +19,8 @@ def parse_conf(path: str = "C:/config.ini"):
         vufind_url = config['vufind']['vufind_url']
     if ('paia' in config): 
         daia_url = config['paia']['daia_url']
+    if ('server' in config):
+        server_mode = config['server']['mode']
 
 
 def safe_get(endpoint: str, params: dict = None) -> list:
@@ -29,7 +31,7 @@ def safe_get(endpoint: str, params: dict = None) -> list:
         params = {}
     qs = [f"{k}={v}" for k, v in params.items()]
     query_string = "&".join(qs)
-    url = f"{vufind_url}/{endpoint}"
+    url = vufind_url
     if query_string:
         url += "?" + query_string
 
@@ -51,7 +53,8 @@ def safe_get_daia(endpoint: str, params: dict = None) -> list:
         params = {}
     qs = [f"{k}={v}" for k, v in params.items()]
     query_string = "&".join(qs)
-    url = f"{daia_url}/{endpoint}"
+    #url = f"{daia_url}{endpoint}"
+    url = daia_url
     if query_string:
         url += "?" + query_string
 
@@ -96,4 +99,7 @@ if __name__ == "__main__":
     else:
       	parse_conf()
     check_functions()
-    mcp.run()
+    if (server_mode == "http"): 
+        mcp.run(transport="http", host="127.0.0.1", port=8000)
+    else:
+        mcp.run()
