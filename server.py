@@ -1,105 +1,138 @@
-from fastmcp import FastMCP
+from typing import Dict, List, Optional
 import requests
 import configparser
+import argparse
+import logging
 import sys
 
+from fastmcp import FastMCP
 
-vufind_url = ""
-daia_url = ""
+log = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
 
 mcp = FastMCP("VuFind MCP")
 
 
-def parse_conf(path: str = "config.ini"):
-    config = configparser.ConfigParser()
-    config.read(path)
-    global vufind_url
-    global daia_url
-    if ('vufind' in config): 
-        vufind_url = config['vufind']['vufind_url']
-    if ('paia' in config): 
-        daia_url = config['paia']['daia_url']
-    if ('server' in config):
-        server_mode = config['server']['mode']
+class Config:
+    def __init__(self, path: str = "config.ini"):
+        self.vufind_url: str = ""
+        self.vufind_url_article: str = ""
+        self.vufind_url_frontend: str = ""
+        self.vufind_url_frontend_article: str = ""
+        self.daia_url: str = ""
+        self.server_mode: str = ""
+        self._load(path)
+
+    def _load(self, path: str) -> None:
+        cfg = configparser.ConfigParser()
+        read_files = cfg.read(path)
+        if not read_files:
+            log.info("No config file found at '%s', using defaults", path)
+            return
+
+        if "vufind" in cfg and "vufind_url" in cfg["vufind"]:
+            self.vufind_url = cfg["vufind"]["vufind_url"]
+        if "vufind" in cfg and "vufind_url_article" in cfg["vufind"]:
+            self.vufind_url_article = cfg["vufind"]["vufind_url_article"]
+        if "paia" in cfg and "daia_url" in cfg["paia"]:
+            self.daia_url = cfg["paia"]["daia_url"]
+        if "server" in cfg and "mode" in cfg["server"]:
+            log.info("server mode set")
+            self.server_mode = cfg["server"]["mode"]
+        if "vufind" in cfg and "vufind_url_frontend" in cfg["vufind"]:
+            log.info("frontend set")
+            self.vufind_url_frontend = cfg["vufind"]["vufind_url_frontend"]
+        if "vufind" in cfg and "vufind_url_frontend_article" in cfg["vufind"]:
+            self.vufind_url_frontend_article = cfg["vufind"]["vufind_url_frontend_article"]
 
 
-def safe_get(endpoint: str, params: dict = None) -> list:
+class HTTPClient:
+    def __init__(self, timeout: float = 10.0):
+        self.session = requests.Session()
+        self.timeout = timeout
+
+    def get_lines(self, base_url: str, endpoint: str = "", params: Optional[Dict] = None) -> List[str]:
+        if not base_url:
+            return ["Error: base URL not configured"]
+        url = base_url.rstrip("/") + (f"/{endpoint.lstrip('/')}" if endpoint else "")
+        try:
+            resp = self.session.get(url, params=params or {}, timeout=self.timeout)
+            resp.encoding = "utf-8"
+            if resp.ok:
+                return resp.text.splitlines()
+            return [f"Error {resp.status_code}: {resp.text.strip()}"]
+        except requests.RequestException as exc:
+            log.debug("Request failed: %s", exc, exc_info=True)
+            return [f"Request failed: {exc}"]
+
+
+def register_tools(mcp_instance: FastMCP, cfg: Config, client: HTTPClient) -> None:
     """
-    Perform a GET request. If 'params' is given, we convert it to a query string.
+    Register MCP tools conditionally depending on config.
+    Each tool uses the shared HTTPClient and Config without globals.
     """
-    if params is None:
-        params = {}
-    qs = [f"{k}={v}" for k, v in params.items()]
-    query_string = "&".join(qs)
-    url = vufind_url
-    if query_string:
-        url += "?" + query_string
 
-    try:
-        response = requests.get(url, timeout=5)
-        response.encoding = 'utf-8'
-        if response.ok:
-            return response.text.splitlines()
-        else:
-            return [f"Error {response.status_code}: {response.text.strip()}"]
-    except Exception as e:
-        return [f"Request failed: {str(e)}"]
-
-def safe_get_daia(endpoint: str, params: dict = None) -> list:
-    """
-    return a publications availability based on its id 
-    """
-    if params is None:
-        params = {}
-    qs = [f"{k}={v}" for k, v in params.items()]
-    query_string = "&".join(qs)
-    #url = f"{daia_url}{endpoint}"
-    url = daia_url
-    if query_string:
-        url += "?" + query_string
-
-    try:
-        response = requests.get(url, timeout=5)
-        response.encoding = 'utf-8'
-        if response.ok:
-            return response.text.splitlines()
-        else:
-            return [f"Error {response.status_code}: {response.text.strip()}"]
-    except Exception as e:
-        return [f"Request failed: {str(e)}"]
-
-
-
-def check_functions():
-    global vufind_url
-    global daia_url
-    if (daia_url != ""):
-
-        @mcp.tool()
-        def get_availability(offset: int = 0, limit: int = 100, ppn: str ="*") -> list:
+    if cfg.daia_url:
+        log.info("daia tool set")
+        @mcp_instance.tool()
+        def get_availability(offset: int = 0, limit: int = 100, ppn: str = "*") -> List[str]:
             """
-        get the local availability of o document specified by the id of the document
+            Get local availability for a document by PPN using the DAIA endpoint.
             """
-            return safe_get_daia("daia", {"id":"ppn:"+ppn, "format":"json"})
+            params = {"id": f"ppn:{ppn}", "format": "json", "offset": offset, "limit": limit}
+            return client.get_lines(cfg.daia_url, params=params)
 
-    if (vufind_url != ""):
-
-        @mcp.tool()
-        def search_literature(offset: int = 0, limit: int = 100, lookfor: str ="*") -> list:
+    if cfg.vufind_url:
+        @mcp_instance.tool()
+        def search_literature(offset: int = 0, limit: int = 100, lookfor: str = "*") -> List[str]:
             """
-        look for content in the library catalogue 
+            Search the VuFind catalogue.
             """
-            return safe_get("vufind/api/v1/search", {"lookfor":lookfor})
+            params = {"lookfor": lookfor, "offset": offset, "limit": limit}
+            return client.get_lines(cfg.vufind_url , params=params)
+
+    if cfg.vufind_url_article:
+        @mcp_instance.tool()
+        def search_article(offset: int = 0, limit: int = 100, lookfor: str = "*") -> List[str]:
+            """
+            Search the VuFind catalogue for articles.
+            """
+            params = {"lookfor": lookfor, "offset": offset, "limit": limit}
+            return client.get_lines(cfg.vufind_url_article , params=params)
+
+    if cfg.vufind_url_frontend:
+        log.info("frontend tool set")
+        @mcp_instance.tool()
+        def frontend_link( ppn: str = "*") -> str:
+            """
+            returns a catalogue link for a given ppn.
+            """
+            return cfg.vufind_url_frontend+ppn 
+
+    if cfg.vufind_url_frontend_article:
+        @mcp_instance.tool()
+        def frontend_link__article( ppn: str = "*") -> str:
+            """
+            returns a catalogue link for a given article ppn.
+            """
+            return cfg.vufind_url_frontend_article+ppn
 
 
-if __name__ == "__main__":
-    if (len(sys.argv) == 2):
-        parse_conf(str(sys.argv[1]))
-        #parse_conf()
-    else:
-      	parse_conf()
-    check_functions()
-    if (server_mode == "http"): 
+def main(argv: Optional[List[str]] = None) -> None:
+    argv = argv if argv is not None else sys.argv[1:]
+    parser = argparse.ArgumentParser(description="Run VuFind MCP")
+    parser.add_argument("-c", "--config", default="config.ini", help="Path to configuration file")
+    args = parser.parse_args(argv)
+
+    cfg = Config(args.config)
+    client = HTTPClient(timeout=5.0)
+    register_tools(mcp, cfg, client)
+
+    if cfg.server_mode == "http":
         mcp.run(transport="http", host="127.0.0.1", port=8000)
     else:
         mcp.run()
+
+
+if __name__ == "__main__":
+    main()
