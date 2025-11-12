@@ -130,6 +130,8 @@ def main(argv: Optional[List[str]] = None) -> None:
 
     if cfg.server_mode == "http":
         mcp.run(transport="http", host="127.0.0.1", port=8000)
+    elif cfg.server_mode == "sse" :
+        mcp.run(transport="sse", host="127.0.0.1", port=8000)
     else:
         mcp.run()
 
