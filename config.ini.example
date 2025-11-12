@@ -1,5 +1,18 @@
 [vufind]
-vufind_url = "your vufind"
+;vufind api url
+vufind_url = https://dev.xxx.de/vufind/api/v1/search
+
+;api url of article tab use api url of your second tab or copy the url from the first tab
+vufind_url_article = https://dev.xxx.de/vufind/api/v1/index2/search
+
+;url to display a record in a specific frontend tab 
+vufind_url_frontend = https://dev.xxx.de/vufind/Record/
+vufind_url_frontend_article = https://dev.xxx.de/vufind/Search2/Record/
+
 
 [paia]
-daia_url = "your paia server"
+daia_url = https://paia.gbv.de/XXXX/daia
+
+[server]
+mode = http
+
